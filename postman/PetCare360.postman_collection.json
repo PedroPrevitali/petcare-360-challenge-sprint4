@@ -1,0 +1,603 @@
+{
+  "info": {
+    "name": "PetCare 360 - Testes Automatizados (Sprint 4 - Parte B)",
+    "description": "Testes automatizados de API do PetCare 360 (.NET 10 + Oracle 19c). Dados controlados extraídos dos casos TC-SYS/TC-CT do Azure Boards. Execute com o Collection Runner ou com Newman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('runId')) { pm.collectionVariables.set('runId', Date.now()); }"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"SLA: tempo de resposta < 2000 ms\", function () {",
+          "  pm.expect(pm.response.responseTime).to.be.below(2000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5260"
+    },
+    {
+      "key": "tutorNome",
+      "value": "Pedro Previtali"
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "idTutor",
+      "value": ""
+    },
+    {
+      "key": "idPet",
+      "value": ""
+    },
+    {
+      "key": "idClinica",
+      "value": ""
+    },
+    {
+      "key": "idConsulta",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1 - Smoke: saúde da API e do Oracle",
+      "item": [
+        {
+          "name": "[TC-CT-08] GET /health/ready - Prontidão da API e do Oracle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
+            },
+            "description": "Valida a sonda de prontidão (API .NET + conexão Oracle 19c). Rastreia TC-CT-08 e TC-SYS-11."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Sonda reporta Healthy\", function () {",
+                  "  let status;",
+                  "  if (isJson()) { status = pm.response.json().status; } else { status = pm.response.text(); }",
+                  "  pm.expect(String(status).toLowerCase()).to.include('healthy');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 - Tutores",
+      "item": [
+        {
+          "name": "[TC-CT-01] POST /api/Tutores - Cadastrar tutor (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Tutores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Tutores"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"{{tutorNome}}\",\n  \"email\": \"pedro.previtali.{{runId}}@petcare360.com.br\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Cria o tutor de teste e guarda o id em {{idTutor}}. O e-mail usa {{runId}} para evitar conflito entre execuções."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Content-Type é JSON\", () => pm.expect(isJson()).to.be.true);",
+                  "const body = pm.response.json();",
+                  "const id = pick(body, 'idTutor', 'id', 'IdTutor');",
+                  "pm.test(\"Resposta traz id numérico do tutor\", () => pm.expect(id).to.be.a('number').and.above(0));",
+                  "pm.test(\"Nome devolvido confere com o enviado\", () => pm.expect(pick(body, 'nome', 'Nome')).to.eql(pm.collectionVariables.get('tutorNome')));",
+                  "if (id) pm.collectionVariables.set('idTutor', id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[TC-CT-02] GET /api/Tutores/{id} - Consultar tutor (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Tutores/{{idTutor}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Tutores",
+                "{{idTutor}}"
+              ]
+            },
+            "description": "Consulta o tutor criado no passo anterior."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"idTutor devolvido é o mesmo criado\", () => pm.expect(pick(body, 'idTutor', 'id', 'IdTutor')).to.eql(Number(pm.collectionVariables.get('idTutor'))));",
+                  "pm.test(\"Nome do tutor confere\", () => pm.expect(pick(body, 'nome', 'Nome')).to.eql(pm.collectionVariables.get('tutorNome')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[TC-CT-02] GET /api/Tutores/{id} - Tutor inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Tutores/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Tutores",
+                "999999"
+              ]
+            },
+            "description": "Teste negativo: ID inexistente não pode devolver dados."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 404 Not Found\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 - Pets",
+      "item": [
+        {
+          "name": "[TC-CT-03] POST /api/Pets - Cadastrar pet Thor (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Pets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Pets"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idTutor\": {{idTutor}},\n  \"nome\": \"Thor\",\n  \"especie\": \"Canina\",\n  \"raca\": \"Golden Retriever\",\n  \"dtNascimento\": \"2021-06-15\",\n  \"peso\": 32.5,\n  \"sexo\": \"M\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Dados controlados do TC-SYS-03: Thor, Canina, Golden Retriever, 2021-06-15, 32.5 kg, M. Guarda o id em {{idPet}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "const id = pick(body, 'idPet', 'id', 'IdPet');",
+                  "pm.test(\"Resposta traz id numérico do pet\", () => pm.expect(id).to.be.a('number').and.above(0));",
+                  "pm.test(\"Nome do pet é Thor\", () => pm.expect(pick(body, 'nome', 'Nome')).to.eql('Thor'));",
+                  "if (id) pm.collectionVariables.set('idPet', id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 - Clínicas e Consultas",
+      "item": [
+        {
+          "name": "[TC-CT-04] POST /api/Clinicas - Cadastrar clínica (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Clinicas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Clinicas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Clyvo Vet Matriz\",\n  \"cnpj\": \"12.345.678/0001-90\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Clínica Clyvo Vet Matriz (TC-SYS-04). Guarda o id em {{idClinica}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "const id = pick(body, 'idClinica', 'id', 'IdClinica');",
+                  "pm.test(\"Resposta traz id numérico da clínica\", () => pm.expect(id).to.be.a('number').and.above(0));",
+                  "if (id) pm.collectionVariables.set('idClinica', id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[TC-CT-05] POST /api/Consultas - Agendar consulta (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPet\": {{idPet}},\n  \"idClinica\": {{idClinica}},\n  \"dataHora\": \"2026-11-02T14:30:00\",\n  \"motivo\": \"Check-up preventivo anual e vacinação de rotina.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Dados controlados do TC-SYS-04: consulta futura em 2026-11-02T14:30:00. Guarda o id em {{idConsulta}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "const id = pick(body, 'idConsulta', 'id', 'IdConsulta');",
+                  "pm.test(\"Resposta traz id numérico da consulta\", () => pm.expect(id).to.be.a('number').and.above(0));",
+                  "pm.test(\"Situação calculada é 'Agendada'\", () => pm.expect(String(pick(body, 'situacao', 'Situacao', 'status')).toLowerCase()).to.eql('agendada'));",
+                  "if (id) pm.collectionVariables.set('idConsulta', id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[TC-SYS-05] POST /api/Consultas - Clínica inexistente é rejeitada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Consultas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Consultas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idPet\": {{idPet}},\n  \"idClinica\": 99999,\n  \"dataHora\": \"2026-11-03T10:00:00\",\n  \"motivo\": \"Teste de integridade referencial.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Teste negativo de integridade referencial (TC-SYS-05): clínica 99999 não existe e nada pode ser gravado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Rejeitada com erro de cliente (400/404/409/422)\", () => pm.expect(pm.response.code).to.be.oneOf([400, 404, 409, 422]));",
+                  "pm.test(\"Resposta não cria consulta (sem id de consulta)\", function () {",
+                  "  let body = {};",
+                  "  try { body = pm.response.json(); } catch (e) {}",
+                  "  pm.expect(pick(body, 'idConsulta', 'IdConsulta')).to.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5 - Histórico clínico",
+      "item": [
+        {
+          "name": "[TC-CT-07] GET /api/Pets/{id}/historico - Histórico agregado (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Pets/{{idPet}}/historico",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Pets",
+                "{{idPet}}",
+                "historico"
+              ]
+            },
+            "description": "Histórico consolidado do pet (TC-SYS-03). Meta de desempenho do sistema: < 120 ms; o SLA da coleção é 2000 ms."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Content-Type é JSON\", () => pm.expect(isJson()).to.be.true);",
+                  "pm.test(\"Histórico contém a consulta agendada\", () => pm.expect(JSON.stringify(pm.response.json())).to.include(String(pm.collectionVariables.get('idConsulta'))));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "99 - Limpeza dos dados de teste",
+      "item": [
+        {
+          "name": "DELETE /api/Consultas/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Consultas/{{idConsulta}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Consultas",
+                "{{idConsulta}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 204 No Content\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /api/Pets/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Pets/{{idPet}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Pets",
+                "{{idPet}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 204 No Content\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /api/Clinicas/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Clinicas/{{idClinica}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Clinicas",
+                "{{idClinica}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 204 No Content\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /api/Tutores/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Tutores/{{idTutor}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Tutores",
+                "{{idTutor}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pick = (b, ...keys) => { for (const k of keys) { if (b && b[k] !== undefined) return b[k]; } return undefined; };",
+                  "const isJson = () => (pm.response.headers.get('Content-Type') || '').toLowerCase().includes('application/json');",
+                  "pm.test(\"Status 204 No Content\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
